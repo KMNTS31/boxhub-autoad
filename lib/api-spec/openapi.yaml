@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: boxfight auto ad API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User management
+  - name: sessions
+    description: Auto-ad sessions
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +28,289 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/discord/callback:
+    get:
+      operationId: discordCallback
+      tags: [auth]
+      summary: Discord OAuth callback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Auth result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Unauthorized
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscordUser"
+        "401":
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /users/authorized:
+    get:
+      operationId: listAuthorizedUsers
+      tags: [users]
+      summary: List authorized users
+      responses:
+        "200":
+          description: List of authorized users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuthorizedUser"
+        "403":
+          description: Forbidden
+
+  /users/authorized/{discordId}:
+    post:
+      operationId: authorizeUser
+      tags: [users]
+      summary: Authorize a user
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthorizeUserInput"
+      responses:
+        "200":
+          description: User authorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthorizedUser"
+        "403":
+          description: Forbidden
+    delete:
+      operationId: revokeUser
+      tags: [users]
+      summary: Revoke user authorization
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "403":
+          description: Forbidden
+
+  /users/check/{discordId}:
+    get:
+      operationId: checkUserAccess
+      tags: [users]
+      summary: Check if user has access
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Access check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccessCheckResult"
+
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List all sessions for current user
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AutoAdSession"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a new auto-ad session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoAdSession"
+        "401":
+          description: Unauthorized
+
+  /sessions/{id}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get session by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoAdSession"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSession
+      tags: [sessions]
+      summary: Delete session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /sessions/{id}/start:
+    post:
+      operationId: startSession
+      tags: [sessions]
+      summary: Start auto-ad session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoAdSession"
+
+  /sessions/{id}/stop:
+    post:
+      operationId: stopSession
+      tags: [sessions]
+      summary: Stop auto-ad session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session stopped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutoAdSession"
+
+  /validate-token:
+    post:
+      operationId: validateDiscordToken
+      tags: [auth]
+      summary: Validate a Discord user token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenInput"
+      responses:
+        "200":
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenValidationResult"
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [users]
+      summary: Get admin dashboard stats
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "403":
+          description: Forbidden
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +318,181 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    DiscordUser:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        discriminator:
+          type: string
+        avatar:
+          type: ["string", "null"]
+        global_name:
+          type: ["string", "null"]
+        isAdmin:
+          type: boolean
+        isAuthorized:
+          type: boolean
+      required: [id, username, discriminator, isAdmin, isAuthorized]
+
+    AuthResult:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/DiscordUser"
+        redirectUrl:
+          type: string
+      required: [user, redirectUrl]
+
+    AuthorizedUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        discordId:
+          type: string
+        username:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatar:
+          type: ["string", "null"]
+        authorizedAt:
+          type: string
+        authorizedBy:
+          type: string
+        notes:
+          type: ["string", "null"]
+        tokenHash:
+          type: ["string", "null"]
+        lastSeen:
+          type: ["string", "null"]
+        sessionCount:
+          type: integer
+      required: [id, discordId, username, authorizedAt, authorizedBy, sessionCount]
+
+    AuthorizeUserInput:
+      type: object
+      properties:
+        username:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatar:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required: [username]
+
+    AccessCheckResult:
+      type: object
+      properties:
+        authorized:
+          type: boolean
+        isAdmin:
+          type: boolean
+      required: [authorized, isAdmin]
+
+    AutoAdSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        discordId:
+          type: string
+        channelId:
+          type: string
+        message:
+          type: string
+        delay:
+          type: integer
+        interval:
+          type: integer
+        status:
+          type: string
+          enum: [idle, running, stopped, error]
+        messagesSent:
+          type: integer
+        createdAt:
+          type: string
+        lastSentAt:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+      required: [id, discordId, channelId, message, delay, interval, status, messagesSent, createdAt]
+
+    SessionInput:
+      type: object
+      properties:
+        channelId:
+          type: string
+        message:
+          type: string
+        delay:
+          type: integer
+        interval:
+          type: integer
+        userToken:
+          type: string
+      required: [channelId, message, delay, interval, userToken]
+
+    TokenInput:
+      type: object
+      properties:
+        token:
+          type: string
+      required: [token]
+
+    TokenValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        username:
+          type: ["string", "null"]
+        id:
+          type: ["string", "null"]
+        avatar:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+      required: [valid]
+
+    AdminStats:
+      type: object
+      properties:
+        totalAuthorized:
+          type: integer
+        activeSessionsCount:
+          type: integer
+        totalMessagesSent:
+          type: integer
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+      required: [totalAuthorized, activeSessionsCount, totalMessagesSent, recentActivity]
+
+    ActivityItem:
+      type: object
+      properties:
+        discordId:
+          type: string
+        username:
+          type: string
+        action:
+          type: string
+        timestamp:
+          type: string
+      required: [discordId, username, action, timestamp]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]

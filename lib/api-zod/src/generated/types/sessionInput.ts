@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface SessionInput {
+  channelId: string;
+  message: string;
+  delay: number;
+  interval: number;
+  userToken: string;
 }
