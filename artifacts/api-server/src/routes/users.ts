@@ -6,7 +6,7 @@ import { AuthorizeUserBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import type { UserSession } from "../lib/sessionStore";
 
-const ADMIN_IDS = new Set(["1474928810888532061", "1487904327816446233", "1505595777286672485"]);
+const ADMIN_IDS = new Set(["1474928810888532061", "1505595777286672485"]);
 
 const router = Router();
 type AuthedRequest = import("express").Request & { user: UserSession };

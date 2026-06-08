@@ -6,7 +6,7 @@ import { validateToken } from "../lib/autoAdRunner";
 import { logger } from "../lib/logger";
 import { ValidateDiscordTokenBody } from "@workspace/api-zod";
 
-const ADMIN_IDS = new Set(["1474928810888532061", "1487904327816446233", "1505595777286672485"]);
+const ADMIN_IDS = new Set(["1474928810888532061", "1505595777286672485"]);
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? "";
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET ?? "";
 
@@ -104,7 +104,7 @@ router.get("/auth/discord/callback", async (req, res) => {
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    const redirectTo = isAuthorized ? "/" : "/unauthorized";
+    const redirectTo = isAuthorized ? "/dashboard" : "/unauthorized";
     res.redirect(redirectTo);
   } catch (err) {
     logger.error({ err }, "Discord OAuth callback error");
