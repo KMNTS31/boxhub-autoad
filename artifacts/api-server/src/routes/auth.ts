@@ -23,8 +23,10 @@ router.get("/auth/discord", (req, res) => {
     res.status(500).json({ error: "Discord client ID not configured" });
     return;
   }
+
   const redirectUri = getRedirectUri(req);
   const state = Math.random().toString(36).substring(2);
+
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
     redirect_uri: redirectUri,
@@ -32,22 +34,29 @@ router.get("/auth/discord", (req, res) => {
     scope: "identify",
     state,
   });
+
   res.redirect(`https://discord.com/api/oauth2/authorize?${params}`);
 });
 
 router.get("/auth/discord/callback", async (req, res) => {
   const { code } = req.query as { code?: string };
+
   if (!code) {
     res.status(400).json({ error: "Missing code" });
     return;
   }
+
   if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET) {
-    res.status(500).json({ error: "Discord OAuth not configured. Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET." });
+    res.status(500).json({
+      error: "Discord OAuth not configured. Set DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET.",
+    });
     return;
   }
 
   try {
     const redirectUri = getRedirectUri(req);
+
+    // 🔐 Exchange code for token
     const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -67,9 +76,16 @@ router.get("/auth/discord/callback", async (req, res) => {
       return;
     }
 
-    const tokenData = await tokenRes.json() as { access_token: string; token_type: string };
+    const tokenData = (await tokenRes.json()) as {
+      access_token: string;
+      token_type: string;
+    };
+
+    // 👤 Fetch user
     const userRes = await fetch("https://discord.com/api/v10/users/@me", {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
     });
 
     if (!userRes.ok) {
@@ -77,12 +93,25 @@ router.get("/auth/discord/callback", async (req, res) => {
       return;
     }
 
-    const discordUser = await userRes.json() as { id: string; username: string; discriminator: string; avatar?: string; global_name?: string };
+    const discordUser = (await userRes.json()) as {
+      id: string;
+      username: string;
+      discriminator: string;
+      avatar?: string;
+      global_name?: string;
+    };
+
     const isAdmin = ADMIN_IDS.has(discordUser.id);
 
     let isAuthorized = isAdmin;
+
     if (!isAdmin) {
-      const existing = await db.select().from(authorizedUsersTable).where(eq(authorizedUsersTable.discordId, discordUser.id)).limit(1);
+      const existing = await db
+        .select()
+        .from(authorizedUsersTable)
+        .where(eq(authorizedUsersTable.discordId, discordUser.id))
+        .limit(1);
+
       isAuthorized = existing.length > 0;
     }
 
@@ -114,15 +143,19 @@ router.get("/auth/discord/callback", async (req, res) => {
 
 router.get("/auth/me", (req, res) => {
   const sessionId = req.cookies?.sessionId;
+
   if (!sessionId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
+
   const session = getSession(sessionId);
+
   if (!session) {
     res.status(401).json({ error: "Session expired" });
     return;
   }
+
   res.json({
     id: session.discordId,
     username: session.username,
@@ -136,21 +169,26 @@ router.get("/auth/me", (req, res) => {
 
 router.post("/auth/logout", (req, res) => {
   const sessionId = req.cookies?.sessionId;
+
   if (sessionId) {
     deleteSession(sessionId);
     res.clearCookie("sessionId");
   }
+
   res.json({ message: "Logged out" });
 });
 
 router.post("/validate-token", async (req, res) => {
   const parsed = ValidateDiscordTokenBody.safeParse(req.body);
+
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
     return;
   }
+
   const { token } = parsed.data;
   const result = await validateToken(token);
+
   res.json(result);
 });
 
