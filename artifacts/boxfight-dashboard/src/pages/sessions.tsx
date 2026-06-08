@@ -4,13 +4,10 @@ import { useListSessions, getListSessionsQueryKey, useCreateSession, useStartSes
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { Play, Square, Trash2, Plus, Clock, MessageSquare, Activity } from "lucide-react";
+import { Play, Square, Trash2, Plus, Clock, MessageSquare, Activity, Zap } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,12 +17,18 @@ import { format } from "date-fns";
 const sessionSchema = z.object({
   channelId: z.string().min(1, "Channel ID is required"),
   message: z.string().min(1, "Message is required"),
-  delay: z.coerce.number().min(0, "Delay must be positive").default(0),
-  interval: z.coerce.number().min(1000, "Interval must be at least 1000ms").default(5000),
+  delay: z.coerce.number().min(0).default(0),
+  interval: z.coerce.number().min(1000, "Min 1000ms").default(5000),
   userToken: z.string().min(1, "Discord token is required"),
 });
 
 type SessionFormValues = z.infer<typeof sessionSchema>;
+
+const statusStyle = (status: string) => {
+  if (status === 'running') return { color: '#4ade80', bg: 'rgba(74,222,128,0.08)', border: 'rgba(74,222,128,0.2)', glow: 'rgba(74,222,128,0.4)' };
+  if (status === 'error') return { color: '#ef4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', glow: 'rgba(239,68,68,0.4)' };
+  return { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', glow: 'transparent' };
+};
 
 export default function Sessions() {
   const { toast } = useToast();
@@ -43,13 +46,7 @@ export default function Sessions() {
 
   const form = useForm<SessionFormValues>({
     resolver: zodResolver(sessionSchema),
-    defaultValues: {
-      channelId: "",
-      message: "",
-      delay: 0,
-      interval: 5000,
-      userToken: "",
-    },
+    defaultValues: { channelId: "", message: "", delay: 0, interval: 5000, userToken: "" },
   });
 
   const onSubmit = (data: SessionFormValues) => {
@@ -58,119 +55,114 @@ export default function Sessions() {
         queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
         setIsDialogOpen(false);
         form.reset();
-        toast({ title: "Session created successfully" });
+        toast({ title: "Session Created" });
       },
       onError: (error: any) => {
-        toast({
-          variant: "destructive",
-          title: "Failed to create session",
-          description: error.message || "An unknown error occurred",
-        });
+        toast({ variant: "destructive", title: "Error", description: error.message });
       }
     });
   };
 
   const handleAction = (action: 'start' | 'stop' | 'delete', id: number) => {
-    const mutation = action === 'start' ? startMutation : action === 'stop' ? stopMutation : deleteMutation;
-    mutation.mutate({ id }, {
+    const mut = action === 'start' ? startMutation : action === 'stop' ? stopMutation : deleteMutation;
+    mut.mutate({ id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListSessionsQueryKey() });
-        toast({ title: `Session ${action}ed` });
+        toast({ title: `Session ${action === 'delete' ? 'deleted' : action + 'ed'}` });
       }
     });
   };
 
+  const inputClass = "bg-white/[0.03] border-white/10 text-white font-mono text-sm focus-visible:ring-0 focus-visible:border-cyan-400/40 h-9";
+  const labelClass = "text-white/40 text-[10px] font-mono tracking-[0.25em] uppercase";
+
   return (
     <DashboardLayout>
       <div className="space-y-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between">
+
+        {/* Header */}
+        <div className="flex items-end justify-between">
           <div>
-            <h1 className="text-3xl font-gothic tracking-widest text-white animate-static-glow">Sessions</h1>
-            <p className="text-muted-foreground uppercase tracking-widest text-sm mt-1">Manage Auto-Ad Configurations</p>
+            <p className="text-white/25 font-mono text-[10px] tracking-[0.3em] uppercase mb-1">Management</p>
+            <h1 className="font-gothic text-4xl text-white tracking-widest" style={{textShadow:'0 0 30px rgba(0,212,255,0.2)'}}>
+              Sessions
+            </h1>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-white text-black hover:bg-white/90 font-bold tracking-wider uppercase">
-                <Plus className="w-4 h-4 mr-2" />
-                New Session
+              <Button className="h-9 px-4 font-bold uppercase tracking-wider text-xs transition-all"
+                style={{
+                  background:'rgba(0,212,255,0.1)',
+                  border:'1px solid rgba(0,212,255,0.3)',
+                  color:'#00d4ff',
+                  boxShadow:'0 0 16px rgba(0,212,255,0.1)'
+                }}>
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> New Session
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-white/20 lightning-border text-foreground">
+            <DialogContent className="max-w-md"
+              style={{
+                background:'linear-gradient(145deg, rgba(10,12,22,0.99) 0%, rgba(6,8,16,1) 100%)',
+                border:'1px solid rgba(0,212,255,0.15)',
+                boxShadow:'0 0 60px rgba(0,212,255,0.08), 0 40px 80px rgba(0,0,0,0.8)'
+              }}>
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
               <DialogHeader>
-                <DialogTitle className="text-2xl font-gothic tracking-wider text-white">Create Session</DialogTitle>
+                <DialogTitle className="font-gothic text-2xl tracking-wider text-white">New Session</DialogTitle>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-                  <FormField
-                    control={form.control}
-                    name="channelId"
-                    render={({ field }) => (
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
+                  <FormField control={form.control} name="channelId" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={labelClass}>Channel ID</FormLabel>
+                      <FormControl>
+                        <Input {...field} className={inputClass} placeholder="1234567890..." />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="message" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={labelClass}>Message</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} className="bg-white/[0.03] border-white/10 text-white font-mono text-sm min-h-[80px] focus-visible:ring-0 focus-visible:border-cyan-400/40 resize-none" placeholder="!boxfight..." />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="delay" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-muted-foreground uppercase tracking-widest text-xs">Channel ID</FormLabel>
+                        <FormLabel className={labelClass}>Initial Delay (ms)</FormLabel>
                         <FormControl>
-                          <Input {...field} className="bg-input border-white/10 text-white font-mono" placeholder="1234567890..." />
+                          <Input type="number" {...field} className={inputClass} />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-red-400 text-xs" />
                       </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="message"
-                    render={({ field }) => (
+                    )} />
+                    <FormField control={form.control} name="interval" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-muted-foreground uppercase tracking-widest text-xs">Message</FormLabel>
+                        <FormLabel className={labelClass}>Interval (ms)</FormLabel>
                         <FormControl>
-                          <Textarea {...field} className="bg-input border-white/10 text-white min-h-[100px]" placeholder="!boxfight..." />
+                          <Input type="number" {...field} className={inputClass} />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-red-400 text-xs" />
                       </FormItem>
-                    )}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="delay"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-muted-foreground uppercase tracking-widest text-xs">Initial Delay (ms)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} className="bg-input border-white/10 text-white font-mono" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="interval"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-muted-foreground uppercase tracking-widest text-xs">Interval (ms)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} className="bg-input border-white/10 text-white font-mono" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    )} />
                   </div>
-                  <FormField
-                    control={form.control}
-                    name="userToken"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-muted-foreground uppercase tracking-widest text-xs">Discord Token</FormLabel>
-                        <FormControl>
-                          <Input type="password" {...field} className="bg-input border-white/10 text-white font-mono" placeholder="MTE..." />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" disabled={createMutation.isPending} className="w-full bg-white text-black hover:bg-white/90 font-bold uppercase tracking-wider mt-4">
-                    {createMutation.isPending ? "Creating..." : "Submit Configuration"}
+                  <FormField control={form.control} name="userToken" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={labelClass}>Discord Token</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} className={inputClass} placeholder="MTE..." />
+                      </FormControl>
+                      <FormMessage className="text-red-400 text-xs" />
+                    </FormItem>
+                  )} />
+                  <Button type="submit" disabled={createMutation.isPending} className="w-full h-10 font-bold uppercase tracking-wider text-xs mt-2"
+                    style={{background:'rgba(0,212,255,0.12)',border:'1px solid rgba(0,212,255,0.3)',color:'#00d4ff',boxShadow:'0 0 20px rgba(0,212,255,0.1)'}}>
+                    {createMutation.isPending ? "Creating..." : "Create Session"}
                   </Button>
                 </form>
               </Form>
@@ -178,86 +170,103 @@ export default function Sessions() {
           </Dialog>
         </div>
 
-        <Card className="bg-card lightning-border border-white/10 overflow-hidden">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="bg-white/5 hover:bg-white/5 border-b border-white/10">
-                <TableRow className="border-none">
-                  <TableHead className="text-muted-foreground uppercase tracking-widest text-xs py-4">Status</TableHead>
-                  <TableHead className="text-muted-foreground uppercase tracking-widest text-xs py-4">Channel</TableHead>
-                  <TableHead className="text-muted-foreground uppercase tracking-widest text-xs py-4">Message</TableHead>
-                  <TableHead className="text-muted-foreground uppercase tracking-widest text-xs py-4">Timing</TableHead>
-                  <TableHead className="text-muted-foreground uppercase tracking-widest text-xs py-4 text-right">Stats & Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Loading sessions...</TableCell>
-                  </TableRow>
-                ) : sessions.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No sessions configured</TableCell>
-                  </TableRow>
-                ) : (
-                  sessions.map((session) => (
-                    <TableRow key={session.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                      <TableCell>
-                        <Badge className={
-                          session.status === 'running' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                          session.status === 'stopped' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
-                          session.status === 'error' ? 'bg-destructive/20 text-destructive border-destructive/30' :
-                          'bg-white/10 text-white/70 border-white/20'
-                        }>
-                          {session.status.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-sm text-white/80">{session.channelId}</TableCell>
-                      <TableCell className="max-w-[200px]">
-                        <p className="truncate text-sm text-white/70">{session.message}</p>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col text-xs text-muted-foreground gap-1">
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3"/> D: {session.delay}ms</span>
-                          <span className="flex items-center gap-1"><Activity className="w-3 h-3"/> I: {session.interval}ms</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-4">
-                          <div className="flex flex-col items-end text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1 text-white/90">
-                              <MessageSquare className="w-3 h-3" />
-                              {session.messagesSent} sent
-                            </span>
-                            {session.lastSentAt && (
-                              <span className="opacity-70">
-                                Last: {format(new Date(session.lastSentAt), "HH:mm:ss")}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex gap-2 border-l border-white/10 pl-4">
-                            {session.status !== 'running' ? (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-green-400 hover:bg-green-500/20 hover:text-green-300" onClick={() => handleAction('start', session.id)}>
-                                <Play className="w-4 h-4" />
-                              </Button>
-                            ) : (
-                              <Button size="icon" variant="ghost" className="h-8 w-8 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300" onClick={() => handleAction('stop', session.id)}>
-                                <Square className="w-4 h-4" />
-                              </Button>
-                            )}
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:bg-destructive/20 hover:text-destructive" onClick={() => handleAction('delete', session.id)}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+        {/* Sessions table card */}
+        <div className="rounded-xl overflow-hidden"
+          style={{
+            background:'linear-gradient(145deg, rgba(10,12,22,0.8) 0%, rgba(6,8,16,0.9) 100%)',
+            border:'1px solid rgba(0,212,255,0.08)',
+            boxShadow:'0 4px 24px rgba(0,0,0,0.4)'
+          }}>
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent" />
+
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_1.5fr_2fr_1fr_auto] gap-4 px-5 py-3.5 border-b"
+            style={{borderColor:'rgba(255,255,255,0.05)',background:'rgba(255,255,255,0.01)'}}>
+            {['Status', 'Channel', 'Message', 'Timing', 'Actions'].map(h => (
+              <span key={h} className="text-[10px] font-mono text-white/25 tracking-[0.25em] uppercase">{h}</span>
+            ))}
           </div>
-        </Card>
+
+          {/* Rows */}
+          {isLoading ? (
+            <div className="py-12 text-center text-white/25 text-sm font-mono tracking-widest">Loading...</div>
+          ) : sessions.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{background:'rgba(0,212,255,0.05)',border:'1px solid rgba(0,212,255,0.1)'}}>
+                <Zap className="w-5 h-5 text-cyan-400/30" />
+              </div>
+              <p className="text-white/20 text-sm font-mono">No sessions configured</p>
+            </div>
+          ) : (
+            <div className="divide-y" style={{borderColor:'rgba(255,255,255,0.03)'}}>
+              {sessions.map((session) => {
+                const s = statusStyle(session.status);
+                return (
+                  <div key={session.id}
+                    className="grid grid-cols-[1fr_1.5fr_2fr_1fr_auto] gap-4 px-5 py-4 items-center hover:bg-white/[0.015] transition-colors group">
+
+                    {/* Status */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{background:s.color,boxShadow:`0 0 6px ${s.glow}`}} />
+                      <span className="text-[10px] font-mono uppercase tracking-wider" style={{color:s.color}}>{session.status}</span>
+                    </div>
+
+                    {/* Channel */}
+                    <span className="font-mono text-xs text-white/50 truncate">{session.channelId}</span>
+
+                    {/* Message */}
+                    <span className="text-sm text-white/60 truncate italic">"{session.message}"</span>
+
+                    {/* Timing + stats */}
+                    <div className="flex flex-col gap-1 text-[11px] text-white/30 font-mono">
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{session.interval}ms</span>
+                      <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{session.messagesSent} sent</span>
+                      {session.lastSentAt && (
+                        <span className="flex items-center gap-1 text-[10px]">
+                          <Activity className="w-3 h-3" />{format(new Date(session.lastSentAt), "HH:mm:ss")}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {session.status !== 'running' ? (
+                        <button onClick={() => handleAction('start', session.id)} disabled={startMutation.isPending}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                          style={{background:'rgba(74,222,128,0.08)',border:'1px solid rgba(74,222,128,0.2)',color:'#4ade80'}}>
+                          <Play className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <button onClick={() => handleAction('stop', session.id)} disabled={stopMutation.isPending}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                          style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.2)',color:'#fbbf24'}}>
+                          <Square className="w-3 h-3" />
+                        </button>
+                      )}
+                      <button onClick={() => handleAction('delete', session.id)} disabled={deleteMutation.isPending}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                        style={{background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.15)',color:'rgba(239,68,68,0.6)'}}>
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Footer */}
+          {sessions.length > 0 && (
+            <div className="px-5 py-3 flex items-center justify-between border-t"
+              style={{borderColor:'rgba(255,255,255,0.04)',background:'rgba(255,255,255,0.005)'}}>
+              <span className="text-white/20 text-[10px] font-mono tracking-widest">{sessions.length} TOTAL SESSIONS</span>
+              <span className="text-white/20 text-[10px] font-mono tracking-widest">
+                {sessions.filter(s=>s.status==='running').length} RUNNING
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

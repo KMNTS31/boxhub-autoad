@@ -21,20 +21,20 @@ function ProtectedRoute({ component: Component, adminOnly = false }: { component
   const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    const agreed = localStorage.getItem("boxfight_agreed") === "true";
-    if (!agreed && location !== "/") {
-      setLocation("/");
+    if (isLoading) return;
+
+    if (isError || !user) {
+      setLocation("/login");
       return;
     }
 
-    if (!isLoading) {
-      if (isError || !user) {
-        setLocation("/login");
-      } else if (!user.isAuthorized && !user.isAdmin) {
-        setLocation("/unauthorized");
-      } else if (adminOnly && !user.isAdmin) {
-        setLocation("/dashboard");
-      }
+    // If user is authenticated, auto-mark disclaimer as agreed
+    localStorage.setItem("boxfight_agreed", "true");
+
+    if (!user.isAuthorized && !user.isAdmin) {
+      setLocation("/unauthorized");
+    } else if (adminOnly && !user.isAdmin) {
+      setLocation("/dashboard");
     }
   }, [user, isLoading, isError, location, setLocation, adminOnly]);
 
@@ -42,8 +42,8 @@ function ProtectedRoute({ component: Component, adminOnly = false }: { component
     return (
       <div className="min-h-screen w-full flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-full border-t-2 border-white animate-spin"></div>
-          <p className="text-muted-foreground font-gothic text-2xl animate-pulse">Checking auth...</p>
+          <div className="w-16 h-16 rounded-full border-t-2 border-t-cyan-400 border-white/10 animate-spin"></div>
+          <p className="text-muted-foreground font-gothic text-2xl animate-pulse tracking-widest">Authenticating...</p>
         </div>
       </div>
     );
@@ -62,7 +62,7 @@ function Router() {
       <Route path="/" component={Disclaimer} />
       <Route path="/login" component={Login} />
       <Route path="/unauthorized" component={Unauthorized} />
-      
+
       <Route path="/dashboard">
         {() => <ProtectedRoute component={Dashboard} />}
       </Route>
@@ -75,7 +75,7 @@ function Router() {
       <Route path="/admin">
         {() => <ProtectedRoute component={Admin} adminOnly />}
       </Route>
-      
+
       <Route component={NotFound} />
     </Switch>
   );

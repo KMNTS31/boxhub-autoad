@@ -4,9 +4,7 @@ import { useUser } from "@/context/user-context";
 import { useValidateDiscordToken, useListSessions, getListSessionsQueryKey, useStartSession, useStopSession, useDeleteSession } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Eye, EyeOff, Key, ShieldCheck, Zap, AlertTriangle, Play, Square, Trash2, Plus, ListTree } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Eye, EyeOff, Key, ShieldCheck, Zap, AlertTriangle, Play, Square, Trash2, Plus, MessageSquare, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -15,7 +13,7 @@ export default function Dashboard() {
   const { user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [token, setToken] = useState("");
   const [showToken, setShowToken] = useState(false);
   const [isValidated, setIsValidated] = useState(false);
@@ -30,6 +28,9 @@ export default function Dashboard() {
     query: { queryKey: getListSessionsQueryKey() }
   });
 
+  const activeSessions = sessions.filter(s => s.status === 'running');
+  const totalMessages = sessions.reduce((acc, s) => acc + s.messagesSent, 0);
+
   const handleValidate = () => {
     if (!token) return;
     validateMutation.mutate({ data: { token } }, {
@@ -37,28 +38,16 @@ export default function Dashboard() {
         if (res.valid) {
           setIsValidated(true);
           setValidatedUser(res.username || null);
-          toast({
-            title: "Token Validated",
-            description: `Successfully authenticated as ${res.username}`,
-          });
+          toast({ title: "Token Valid", description: `Authenticated as ${res.username}` });
         } else {
           setIsValidated(false);
           setValidatedUser(null);
-          toast({
-            variant: "destructive",
-            title: "Invalid Token",
-            description: res.error || "The provided token is invalid",
-          });
+          toast({ variant: "destructive", title: "Invalid Token", description: res.error || "Token rejected" });
         }
       },
       onError: () => {
         setIsValidated(false);
-        setValidatedUser(null);
-        toast({
-          variant: "destructive",
-          title: "Validation Failed",
-          description: "An error occurred while validating the token",
-        });
+        toast({ variant: "destructive", title: "Validation Failed", description: "Network error" });
       }
     });
   };
@@ -92,187 +81,214 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-8 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between">
+      <div className="space-y-6 max-w-5xl mx-auto">
+
+        {/* Page header */}
+        <div className="flex items-end justify-between">
           <div>
-            <h1 className="text-3xl font-gothic tracking-widest text-white animate-static-glow">Dashboard</h1>
-            <p className="text-muted-foreground uppercase tracking-widest text-sm mt-1">Welcome back, {user?.username}</p>
+            <p className="text-white/25 font-mono text-[10px] tracking-[0.3em] uppercase mb-1">Overview</p>
+            <h1 className="font-gothic text-4xl text-white tracking-widest" style={{textShadow:'0 0 30px rgba(0,212,255,0.2)'}}>
+              Dashboard
+            </h1>
           </div>
+          <p className="text-white/30 text-sm">
+            Welcome, <span className="text-white/60 font-medium">{user?.username}</span>
+          </p>
         </div>
 
-        {/* Token Validation Card */}
-        <Card className="bg-card lightning-border border-white/10 overflow-hidden relative">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-50" />
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Key className="w-5 h-5 text-white/70" />
-              Discord User Token
-            </CardTitle>
-            <CardDescription className="text-muted-foreground flex items-center gap-2 text-xs">
-              <AlertTriangle className="w-4 h-4 text-amber-500" />
-              Never share your token with anyone. This is stored securely.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Total Sessions", value: sessions.length, icon: Zap, color: 'rgba(0,212,255,0.6)' },
+            { label: "Active Now", value: activeSessions.length, icon: Play, color: 'rgba(74,222,128,0.6)', pulse: activeSessions.length > 0 },
+            { label: "Messages Fired", value: totalMessages.toLocaleString(), icon: MessageSquare, color: 'rgba(168,85,247,0.6)' },
+          ].map(({ label, value, icon: Icon, color, pulse }) => (
+            <div key={label} className="stat-card rounded-xl p-5 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-3 opacity-[0.04] group-hover:opacity-[0.07] transition-opacity">
+                <Icon className="w-20 h-20" />
+              </div>
+              <p className="text-white/35 text-[10px] font-mono tracking-[0.25em] uppercase mb-2">{label}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-3xl font-gothic" style={{ color, textShadow: `0 0 20px ${color}` }}>
+                  {value}
+                </p>
+                {pulse && <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" style={{boxShadow:'0 0 8px rgba(74,222,128,0.8)'}} />}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Token Validator */}
+        <div className="rounded-xl overflow-hidden relative"
+          style={{
+            background: 'linear-gradient(145deg, rgba(12,14,24,0.8) 0%, rgba(8,10,18,0.9) 100%)',
+            border: '1px solid rgba(0,212,255,0.1)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.03)'
+          }}
+        >
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+          <div className="p-6">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                style={{background:'rgba(0,212,255,0.08)',border:'1px solid rgba(0,212,255,0.15)'}}>
+                <Key className="w-3.5 h-3.5 text-cyan-400" />
+              </div>
+              <div>
+                <h3 className="text-white/90 text-sm font-semibold">Discord Token Validator</h3>
+                <p className="text-white/30 text-xs">Verify a user token before creating sessions</p>
+              </div>
+              <div className="ml-auto flex items-center gap-1.5 text-yellow-500/50 text-xs">
+                <AlertTriangle className="w-3 h-3" />
+                <span className="font-mono text-[10px] tracking-widest uppercase">Never Share</span>
+              </div>
+            </div>
+
             <div className="flex gap-3">
               <div className="relative flex-1">
                 <Input
                   type={showToken ? "text" : "password"}
-                  placeholder="Enter Discord Token (e.g. MTE...)"
+                  placeholder="MTE... (paste Discord token)"
                   value={token}
-                  onChange={(e) => {
-                    setToken(e.target.value);
-                    setIsValidated(false);
-                  }}
-                  className="bg-input border-white/10 text-white pr-10 font-mono focus-visible:ring-white/30"
+                  onChange={(e) => { setToken(e.target.value); setIsValidated(false); }}
+                  className="bg-white/[0.03] border-white/10 text-white pr-10 font-mono text-sm focus-visible:ring-0 focus-visible:border-cyan-400/40 h-10 input-glow"
                   data-testid="input-discord-token"
                 />
                 <button
                   type="button"
                   onClick={() => setShowToken(!showToken)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors"
                 >
                   {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <Button 
-                onClick={handleValidate} 
+              <Button
+                onClick={handleValidate}
                 disabled={!token || validateMutation.isPending}
-                className="bg-white text-black hover:bg-white/90 font-bold px-6"
+                className="h-10 px-5 font-bold text-xs uppercase tracking-widest transition-all"
+                style={{
+                  background: token ? 'rgba(0,212,255,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${token ? 'rgba(0,212,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                  color: token ? '#00d4ff' : 'rgba(255,255,255,0.3)',
+                }}
                 data-testid="button-validate-token"
               >
-                {validateMutation.isPending ? "Validating..." : "Validate Token"}
+                {validateMutation.isPending ? "Checking..." : "Validate"}
               </Button>
             </div>
 
             {isValidated && validatedUser && (
-              <div className="flex items-center justify-between p-4 bg-green-500/10 border border-green-500/20 rounded-md">
-                <div className="flex items-center gap-3 text-green-400">
-                  <ShieldCheck className="w-5 h-5" />
-                  <span className="font-medium">Validated as <span className="text-white font-bold">{validatedUser}</span></span>
+              <div className="flex items-center justify-between mt-3 p-3 rounded-lg"
+                style={{background:'rgba(74,222,128,0.05)',border:'1px solid rgba(74,222,128,0.15)'}}>
+                <div className="flex items-center gap-2 text-green-400">
+                  <ShieldCheck className="w-4 h-4" style={{filter:'drop-shadow(0 0 6px rgba(74,222,128,0.6))'}} />
+                  <span className="text-sm">Valid token for <span className="text-white font-bold">{validatedUser}</span></span>
                 </div>
                 <Link href="/sessions">
-                  <Button variant="outline" className="border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create New Session
+                  <Button size="sm" className="h-7 px-3 text-xs font-bold uppercase tracking-wider"
+                    style={{background:'rgba(74,222,128,0.1)',border:'1px solid rgba(74,222,128,0.25)',color:'#4ade80'}}>
+                    <Plus className="w-3 h-3 mr-1" /> New Session
                   </Button>
                 </Link>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Active Sessions */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Zap className="w-5 h-5" />
-              Active Sessions
-            </h2>
-            <Badge variant="outline" className="border-white/20 bg-white/5 text-white">
-              {sessions.length} Total
-            </Badge>
+        {/* Sessions list */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Zap className="w-4 h-4 text-cyan-400/60" />
+              <h2 className="text-white/80 text-sm font-semibold uppercase tracking-wider">Recent Sessions</h2>
+            </div>
+            <Link href="/sessions">
+              <Button size="sm" className="h-7 px-3 text-[10px] font-mono uppercase tracking-wider"
+                style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.4)'}}>
+                View All →
+              </Button>
+            </Link>
           </div>
 
           {isLoadingSessions ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[1, 2].map(i => (
-                <Card key={i} className="bg-card border-white/5 h-40 animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[1,2].map(i => (
+                <div key={i} className="rounded-xl h-36 animate-pulse"
+                  style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.04)'}} />
               ))}
             </div>
           ) : sessions.length === 0 ? (
-            <Card className="bg-card border-white/5 p-8 text-center border-dashed">
-              <div className="mx-auto w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <ListTree className="w-6 h-6 text-muted-foreground" />
+            <div className="rounded-xl p-10 text-center"
+              style={{background:'rgba(255,255,255,0.01)',border:'1px dashed rgba(255,255,255,0.06)'}}>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{background:'rgba(0,212,255,0.06)',border:'1px solid rgba(0,212,255,0.1)'}}>
+                <Zap className="w-5 h-5 text-cyan-400/40" />
               </div>
-              <p className="text-muted-foreground mb-4">No active sessions found.</p>
+              <p className="text-white/25 text-sm mb-4">No sessions configured yet</p>
               {isValidated && (
                 <Link href="/sessions">
-                  <Button className="bg-white text-black hover:bg-white/90">
+                  <Button size="sm" className="font-bold uppercase tracking-wider text-xs"
+                    style={{background:'rgba(0,212,255,0.1)',border:'1px solid rgba(0,212,255,0.25)',color:'#00d4ff'}}>
                     Create Your First Session
                   </Button>
                 </Link>
               )}
-            </Card>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sessions.map(session => (
-                <Card key={session.id} className="bg-card lightning-border border-white/10 flex flex-col group relative overflow-hidden">
-                  <div className="p-5 flex-1 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {sessions.slice(0, 4).map(session => {
+                const isRunning = session.status === 'running';
+                const statusColor = isRunning ? '#4ade80' : session.status === 'error' ? '#ef4444' : 'rgba(255,255,255,0.3)';
+                return (
+                  <div key={session.id}
+                    className="rounded-xl p-4 group transition-all duration-200 relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(145deg, rgba(12,14,24,0.8) 0%, rgba(8,10,18,0.9) 100%)',
+                      border: `1px solid ${isRunning ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.05)'}`,
+                    }}
+                  >
+                    {isRunning && <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-green-400/40 to-transparent" />}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full" style={{background:statusColor,boxShadow:`0 0 6px ${statusColor}`}} />
+                        <span className="text-[10px] font-mono uppercase tracking-widest" style={{color:statusColor}}>
+                          {session.status}
+                        </span>
+                      </div>
+                      <span className="text-white/20 font-mono text-[10px]">#{session.id}</span>
+                    </div>
+
+                    <p className="font-mono text-xs text-white/40 mb-1">CH: {session.channelId}</p>
+                    <p className="text-white/70 text-sm truncate italic mb-3">"{session.message}"</p>
+
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-xs text-muted-foreground">ID: {session.id}</span>
-                      <Badge className={
-                        session.status === 'running' ? 'bg-green-500/20 text-green-400 border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]' :
-                        session.status === 'stopped' ? 'bg-red-500/20 text-red-400 border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]' :
-                        session.status === 'error' ? 'bg-destructive/20 text-destructive border-destructive/30 shadow-[0_0_10px_rgba(220,38,38,0.4)]' :
-                        'bg-white/10 text-white/70 border-white/20'
-                      }>
-                        {session.status.toUpperCase()}
-                      </Badge>
-                    </div>
-                    
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Channel ID</p>
-                      <p className="font-mono text-white bg-white/5 p-2 rounded border border-white/10 text-sm">
-                        {session.channelId}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Message Preview</p>
-                      <p className="text-sm text-white/80 line-clamp-2 italic border-l-2 border-white/20 pl-2">
-                        "{session.message}"
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="bg-white/5 p-2 rounded">
-                        <span className="text-muted-foreground block mb-1">Delay</span>
-                        <span className="text-white font-mono">{session.delay}ms</span>
+                      <div className="flex items-center gap-3 text-[11px] text-white/30">
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{session.interval}ms</span>
+                        <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" />{session.messagesSent} sent</span>
                       </div>
-                      <div className="bg-white/5 p-2 rounded">
-                        <span className="text-muted-foreground block mb-1">Interval</span>
-                        <span className="text-white font-mono">{session.interval}ms</span>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!isRunning ? (
+                          <button onClick={() => handleStart(session.id)} disabled={startMutation.isPending}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                            style={{background:'rgba(74,222,128,0.08)',border:'1px solid rgba(74,222,128,0.2)',color:'#4ade80'}}>
+                            <Play className="w-3 h-3" />
+                          </button>
+                        ) : (
+                          <button onClick={() => handleStop(session.id)} disabled={stopMutation.isPending}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                            style={{background:'rgba(251,191,36,0.08)',border:'1px solid rgba(251,191,36,0.2)',color:'#fbbf24'}}>
+                            <Square className="w-3 h-3" />
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(session.id)} disabled={deleteMutation.isPending}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                          style={{background:'rgba(239,68,68,0.06)',border:'1px solid rgba(239,68,68,0.15)',color:'rgba(239,68,68,0.7)'}}>
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="border-t border-white/10 p-3 bg-black/40 flex items-center justify-between gap-2 opacity-0 group-hover:opacity-100 transition-opacity absolute bottom-0 w-full translate-y-full group-hover:translate-y-0">
-                    <div className="flex gap-2">
-                      {session.status !== 'running' ? (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="border-green-500/30 text-green-400 hover:bg-green-500/20 hover:text-green-300"
-                          onClick={() => handleStart(session.id)}
-                          disabled={startMutation.isPending}
-                        >
-                          <Play className="w-4 h-4 mr-1" /> Start
-                        </Button>
-                      ) : (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="border-amber-500/30 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300"
-                          onClick={() => handleStop(session.id)}
-                          disabled={stopMutation.isPending}
-                        >
-                          <Square className="w-4 h-4 mr-1" /> Stop
-                        </Button>
-                      )}
-                    </div>
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      className="text-destructive hover:bg-destructive/20 hover:text-destructive"
-                      onClick={() => handleDelete(session.id)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
