@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+**/.tsbuildinfo
+artifacts/boxfight-dashboard
+artifacts/mockup-sandbox
+.local
+.agents
+.git
+*.log
