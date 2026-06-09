@@ -1,0 +1,78 @@
+scheduling build on Metal builder "production-builderv3-us-west1-hvp9"
+unpacking archive
+5 MB
+17ms
+using build driver nixpacks-v1.41.0
+ 
+╔══════════════════════════════ Nixpacks v1.41.0 ══════════════════════════════╗
+║ setup      │ nodejs_24                                                       ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ install    │ npm install -g pnpm@9                                           ║
+║            │ pnpm install --no-frozen-lockfile                               ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ build      │ npm install -g pnpm@9 && pnpm install --no-frozen-lockfile &&   ║
+║            │ pnpm --filter @workspace/api-server run build && pnpm --filter  ║
+║            │ @workspace/db run push                                          ║
+║──────────────────────────────────────────────────────────────────────────────║
+║ start      │ node --enable-source-maps artifacts/api-server/dist/index.mjs   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+ 
+ 
+Saved output to:
+  snapshot-target-unpack
+uploading snapshot
+4.1 MB
+131ms
+
+internal
+load build definition from Dockerfile
+0ms
+
+internal
+load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+119ms
+
+internal
+load .dockerignore
+0ms
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ARG "DISCORD_CLIENT_SECRET") (line 11)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data (ENV "DISCORD_CLIENT_SECRET") (line 12)(https://docs.docker.com/go/dockerfile/rule/secrets-used-in-arg-or-env/)
+ details: Sensitive data should not be used in the ARG or ENV commands
+UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)(https://docs.docker.com/go/dockerfile/rule/undefined-var/)
+ details: Variables should be defined before their use
+
+stage-0
+FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+8ms
+
+internal
+load build context
+0ms
+
+stage-0
+RUN nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d cached
+0ms
+
+stage-0
+COPY .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix cached
+0ms
+
+stage-0
+WORKDIR /app/ cached
+0ms
+
+stage-0
+COPY . /app/.
+288ms
+
+stage-0
+RUN npm install -g pnpm@9
+2s
+run `npm fund` for details
+
+stage-0
+RUN pnpm install --no-frozen-lockfile
+149ms
+/bin/bash: line 1: pnpm: command not found
+Build Failed: build daemon returned an error < failed to solve: process "/bin/bash -ol pipefail -c pnpm install --no-frozen-lockfile" did not complete successfully: exit code: 127
